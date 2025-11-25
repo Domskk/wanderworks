@@ -1,4 +1,3 @@
-// src/app/api/chat/route.ts
 import { NextResponse } from "next/server";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";

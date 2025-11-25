@@ -194,7 +194,7 @@ export default function ChatUI({
         const localSpeak = data.localSpeak || "";
         const localLang = data.localLang || language;
 
-if (data.isTranslation && data.targetCountry) {
+        if (data.isTranslation && data.targetCountry) {
           const tipCountry = data.targetCountry.trim();
 
           if (tipCountry && !shownTipCountries.has(tipCountry)) {
