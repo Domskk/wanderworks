@@ -3,17 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { createClient } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient'; // ← This is cleanest
 
 type View = 'signin' | 'signup' | 'forgot';
 
 export default function HomePage() {
   const router = useRouter();
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
   const [view, setView] = useState<View>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,18 +30,15 @@ export default function HomePage() {
 
         if (error) throw error;
 
-        // Fetch user role from your "users" table
         const { data: profile } = await supabase
           .from('users')
           .select('role')
           .eq('id', data.user.id)
           .single();
 
-        const role = profile?.role || 'user';
-
-        // Redirect based on role
+        const role = (profile as { role: string } | null)?.role || 'user';
         router.push(role === 'admin' ? '/dashboard/admin' : '/dashboard/user');
-        router.refresh(); // This triggers server revalidation → session is now available server-side
+        router.refresh();
       }
 
       else if (view === 'signup') {
@@ -54,16 +46,14 @@ export default function HomePage() {
           email,
           password,
           options: {
-            emailRedirectTo: typeof window !== 'undefined' 
-              ? `${window.location.origin}/` 
-              : 'http://localhost:3000/',
+            emailRedirectTo: `${window.location.origin}/`,
           },
         });
 
         if (error) throw error;
 
         setMessage({
-          text: 'Check your email! We sent a confirmation link.',
+          text: 'Check your email for confirmation link!',
           type: 'success',
         });
         setView('signin');
@@ -71,28 +61,25 @@ export default function HomePage() {
 
       else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: typeof window !== 'undefined'
-            ? `${window.location.origin}/reset-password`
-            : 'http://localhost:3000/reset-password',
+          redirectTo: `${window.location.origin}/reset-password`,
         });
 
         if (error) throw error;
 
         setMessage({
-          text: 'Password reset link sent to your email!',
+          text: 'Password reset link sent!',
           type: 'success',
         });
       }
     } catch (err) {
       setMessage({
-        text: ((err as Error).message) || 'An error occurred. Please try again.',
+        text: (err as Error).message,
         type: 'error',
       });
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-700">

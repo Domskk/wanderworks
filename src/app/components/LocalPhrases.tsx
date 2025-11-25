@@ -19,22 +19,33 @@ export default function LocalPhrases({ country, language, onInsert }: LocalPhras
 
   useEffect(() => {
     if (!country) return;
+
     const load = async () => {
       const { data } = await supabase
         .from("local_phrases")
         .select("scenario")
         .eq("country", country)
         .order("scenario");
-      const unique = [...new Set(data?.map(d => d.scenario))];
+
+      // FIX 1: Filter out null + extract string safely
+      const unique = [...new Set(
+        data
+          ?.map(d => d.scenario)
+          .filter((s): s is string => s !== null && s !== "") // ← removes null/empty
+          .filter(Boolean)
+      )];
+
       setScenarios(unique);
       setCurrentScenario(unique[0] || "");
       setLoading(false);
     };
+
     load();
   }, [country]);
 
   useEffect(() => {
     if (!currentScenario || !country) return;
+
     const load = async () => {
       const { data } = await supabase
         .from("local_phrases")
@@ -42,16 +53,24 @@ export default function LocalPhrases({ country, language, onInsert }: LocalPhras
         .eq("country", country)
         .eq("scenario", currentScenario)
         .limit(10);
-      setPhrases(data || []);
+
+      // FIX 2: Filter out null phrases and ensure non-empty strings
+      const validPhrases = data
+        ?.map(d => d.phrase)
+        .filter((p): p is string => p !== null && p.trim() !== "")
+        .map(phrase => ({ phrase })) || [];
+
+      setPhrases(validPhrases);
       setIndex(0);
     };
+
     load();
-  }, [currentScenario, country,language]);
+  }, [currentScenario, country, language]);
 
   if (loading) return <div className="text-xs text-gray-500 text-center">Loading...</div>;
   if (scenarios.length === 0) return <div className="text-xs text-gray-500 text-center">No phrases</div>;
 
-  const current = phrases[index]?.phrase || "";
+  const current = phrases[index]?.phrase || "No phrase";
 
   return (
     <div className="space-y-2">
@@ -70,6 +89,7 @@ export default function LocalPhrases({ country, language, onInsert }: LocalPhras
           </button>
         ))}
       </div>
+
       <div className="flex items-center gap-1.5">
         <button
           onClick={() => setIndex(i => Math.max(0, i - 1))}
@@ -78,6 +98,7 @@ export default function LocalPhrases({ country, language, onInsert }: LocalPhras
         >
           <ChevronUp size={14} />
         </button>
+
         <button
           onClick={() => onInsert(current)}
           className="flex-1 min-w-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-medium text-center truncate"
@@ -85,6 +106,7 @@ export default function LocalPhrases({ country, language, onInsert }: LocalPhras
         >
           {current}
         </button>
+
         <button
           onClick={() => setIndex(i => Math.min(phrases.length - 1, i + 1))}
           disabled={index === phrases.length - 1}
