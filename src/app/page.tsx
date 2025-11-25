@@ -1,13 +1,19 @@
-'use client'
+'use client';
 
 import { useRouter } from 'next/navigation';
-import {  useState } from 'react';
+import { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabaseClient';
 
 type View = 'signin' | 'signup' | 'forgot';
 
 export default function HomePage() {
   const router = useRouter();
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const [view, setView] = useState<View>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,37 +28,66 @@ export default function HomePage() {
 
     try {
       if (view === 'signin') {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
 
-        const data = await res.json();
+        if (error) throw error;
 
-        if (!res.ok) throw new Error(data.error || 'Login failed');
+        // Fetch user role from your "users" table
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
 
-        // Success → redirect
-        router.push(data.role === 'admin' ? '/dashboard/admin' : '/dashboard/user');
+        const role = profile?.role || 'user';
+
+        // Redirect based on role
+        router.push(role === 'admin' ? '/dashboard/admin' : '/dashboard/user');
+        router.refresh(); // This triggers server revalidation → session is now available server-side
       }
 
       else if (view === 'signup') {
-        const { error } = await (await import('@/lib/supabaseClient')).supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + '/dashboard/user' }
+          options: {
+            emailRedirectTo: typeof window !== 'undefined' 
+              ? `${window.location.origin}/` 
+              : 'http://localhost:3000/',
+          },
         });
+
         if (error) throw error;
-        setMessage({ text: 'Check your email for confirmation link!', type: 'success' });
+
+        setMessage({
+          text: 'Check your email! We sent a confirmation link.',
+          type: 'success',
+        });
+        setView('signin');
       }
 
       else if (view === 'forgot') {
-        const { error } = await (await import('@/lib/supabaseClient')).supabase.auth.resetPasswordForEmail(email);
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: typeof window !== 'undefined'
+            ? `${window.location.origin}/reset-password`
+            : 'http://localhost:3000/reset-password',
+        });
+
         if (error) throw error;
-        setMessage({ text: 'Password reset link sent!', type: 'success' });
+
+        setMessage({
+          text: 'Password reset link sent to your email!',
+          type: 'success',
+        });
       }
     } catch (err) {
-      setMessage({ text: (err as Error).message.replace('Error: ', ''), type: 'error' });
+      setMessage({
+        text: ((err as Error).message) || 'An error occurred. Please try again.',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -82,7 +117,7 @@ export default function HomePage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                required
+                required={true}
                 className="w-full px-4 py-3 pr-12 rounded-xl bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <button
@@ -101,15 +136,22 @@ export default function HomePage() {
             className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-70 text-white font-bold flex justify-center items-center gap-2 transition"
           >
             {loading && <Loader2 className="animate-spin" size={20} />}
-            {loading ? 'Please wait...' : 
-              view === 'signin' ? 'Sign In' :
-              view === 'signup' ? 'Create Account' : 'Send Reset Link'
-            }
+            {loading
+              ? 'Please wait...'
+              : view === 'signin'
+              ? 'Sign In'
+              : view === 'signup'
+              ? 'Create Account'
+              : 'Send Reset Link'}
           </button>
         </form>
 
         {message && (
-          <p className={`mt-4 text-center text-sm ${message.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+          <p
+            className={`mt-4 text-center text-sm ${
+              message.type === 'success' ? 'text-emerald-400' : 'text-red-400'
+            }`}
+          >
             {message.text}
           </p>
         )}
@@ -117,14 +159,32 @@ export default function HomePage() {
         <div className="mt-6 text-center text-sm text-gray-400 space-y-2">
           {view === 'signin' && (
             <>
-              <button onClick={() => setView('forgot')} className="text-emerald-400 hover:underline">Forgot password?</button>
+              <button
+                type="button"
+                onClick={() => setView('forgot')}
+                className="text-emerald-400 hover:underline"
+              >
+                Forgot password?
+              </button>
               <div>
-                <button onClick={() => setView('signup')} className="text-emerald-400 hover:underline">Create account</button>
+                <button
+                  type="button"
+                  onClick={() => setView('signup')}
+                  className="text-emerald-400 hover:underline"
+                >
+                  Create account
+                </button>
               </div>
             </>
           )}
           {(view === 'signup' || view === 'forgot') && (
-            <button onClick={() => setView('signin')} className="text-emerald-400 hover:underline">Back to login</button>
+            <button
+              type="button"
+              onClick={() => setView('signin')}
+              className="text-emerald-400 hover:underline"
+            >
+              Back to login
+            </button>
           )}
         </div>
       </div>

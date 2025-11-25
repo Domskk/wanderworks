@@ -31,7 +31,8 @@ export async function POST(request: Request) {
       .from("cultural_tips")
       .select("tip, etiquette")
       .or(`country.ilike.%${input}%, country.ilike.%${normalized}%`)
-      .limit(1);
+      .limit(1)
+      .returns<Array<{ tip: string | null; etiquette: string | null }>>();
 
     if (data && data[0]?.tip) {
       let tip = data[0].tip.trim();

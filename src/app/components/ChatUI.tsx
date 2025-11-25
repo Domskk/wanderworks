@@ -22,13 +22,13 @@ interface Message {
   id?: string;
 }
 
-const WELCOME_MESSAGE = `Hello! I'm WanderBot ✈️\nYou can ask me:\n\n• How do you say “thank you” in Japanese?\n• Translate “hello” in Korean\n• And goodbye? (follow-up)\n• Best street food in Bangkok?`;
+const WELCOME_MESSAGE = `Hello! I'm WanderBot ✈️\nYou can ask me:\n\n• How do you say "thank you" in Japanese?\n• Translate "hello" in Korean\n• And goodbye? (follow-up)\n• Best street food in Bangkok?`;
 
 export default function ChatUI({
   selectedChatId,
   onChatUpdate,
 }: {
-  selectedChatId: string | null;
+  selectedChatId: number | null;
   onChatUpdate: () => void;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -43,7 +43,7 @@ export default function ChatUI({
   const [isOpen, setIsOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 
-  // FIXED: Persistent + React-friendly shown tips
+  // Track shown tip countries to avoid repeats
   const [shownTipCountries, setShownTipCountries] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -103,7 +103,7 @@ export default function ChatUI({
       await supabase
         .from("chat_history")
         .update({
-          messages: msgs,
+          messages: JSON.stringify(msgs),
           title: msgs.find(m => m.sender === "user")?.text.slice(0, 40) || "New Chat",
         })
         .eq("id", selectedChatId);
@@ -124,15 +124,31 @@ export default function ChatUI({
         .eq("id", selectedChatId)
         .single();
 
-      if (data?.messages && data.messages.length > 0) {
-        setMessages(data.messages);
-      } else {
-        const saved = localStorage.getItem(`chat_${selectedChatId}`);
-        if (saved) {
+      if (data?.messages) {
+        try {
+          const parsedMessages = typeof data.messages === 'string' 
+            ? JSON.parse(data.messages) 
+            : data.messages;
+          
+          if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+            setMessages(parsedMessages as Message[]);
+            return;
+          }
+        } catch (err) {
+          console.error("Error parsing messages:", err);
+        }
+      }
+      
+      // Fallback to localStorage
+      const saved = localStorage.getItem(`chat_${selectedChatId}`);
+      if (saved) {
+        try {
           setMessages(JSON.parse(saved));
-        } else {
+        } catch {
           setMessages([{ sender: "ai", text: WELCOME_MESSAGE }]);
         }
+      } else {
+        setMessages([{ sender: "ai", text: WELCOME_MESSAGE }]);
       }
     };
     load();
@@ -151,12 +167,16 @@ export default function ChatUI({
           const geo = await res.json();
           setCountry(geo.country ?? "Philippines");
           setCountryCode(geo.country_code ?? "PH");
+          
           const { data } = await supabase
             .from("destinations")
             .select("default_language")
             .eq("country", geo.country)
             .maybeSingle();
-          setLanguage(data?.default_language ?? "en");
+          
+          if (data && 'default_language' in data) {
+            setLanguage(data.default_language ?? "en");
+          }
         } catch (err) {
           console.error("Geo error:", err);
         }
@@ -246,7 +266,7 @@ export default function ChatUI({
         setIsVoiceInput(false);
       }
     },
-    [messages, selectedChatId, language, speakLocal, speakReply, loading, persistMessages, country, shownTipCountries, aiVoiceEnabled]
+    [messages, selectedChatId, language, speakLocal, speakReply, loading, persistMessages, country, shownTipCountries, aiVoiceEnabled, setShownTipCountries]
   );
 
   const regenerateLast = useCallback(async () => {
@@ -271,7 +291,7 @@ export default function ChatUI({
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white min-h-0">
       {/* Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800 shrink-0">
+      <header className="sticky top-0 z-40 flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xl flex-shrink-0">
             {countryCode ? countryCodeToEmoji(countryCode) : <Globe size={20} />}
@@ -294,7 +314,7 @@ export default function ChatUI({
       </header>
 
       {/* Country Switcher */}
-      <div className="bg-gray-800/80 backdrop-blur-sm border-b border-gray-700">
+      <div className="bg-gray-800/80 backdrop-blur-sm border-b border-gray-700 shrink-0 z-40">
         <button onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
           className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-700/50 transition-colors">
           <div className="flex items-center gap-2">
@@ -318,7 +338,7 @@ export default function ChatUI({
               setCountryCode(code);
               setIsSwitcherOpen(false);
             }}
-              className={`flex flex-col items-center gap-1 py-2 px-3 rounded-lg transition-all ${country === name ? "bg-emerald-600 text-white shadow-lg ring-2 ring-emerald-400" : "bg-gray-gray-700 hover:bg-gray-600 text-gray-200"}`}>
+              className={`flex flex-col items-center gap-1 py-2 px-3 rounded-lg transition-all ${country === name ? "bg-emerald-600 text-white shadow-lg ring-2 ring-emerald-400" : "bg-gray-700 hover:bg-gray-600 text-gray-200"}`}>
               <span className="text-2xl">{countryCodeToEmoji(code)}</span>
               <span className="text-xs font-medium">{name}</span>
             </button>
@@ -403,7 +423,7 @@ export default function ChatUI({
       </div>
 
       {/* Input Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-3 flex gap-2 items-center z-30">
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-3 flex gap-2 items-center z-10">
         <input
           type="text"
           value={input}
