@@ -12,7 +12,6 @@ import {
   MapPin,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import LocalPhrases from "./LocalPhrases";
 import { countryCodeToEmoji } from "@/lib/flag";
 import { useVoice } from "@/lib/useVoice";
 
@@ -40,7 +39,6 @@ export default function ChatUI({
   const [countryCode, setCountryCode] = useState("PH");
   const [language, setLanguage] = useState("en");
   const [isVoiceInput, setIsVoiceInput] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 
   // Track shown tip countries to avoid repeats
@@ -406,21 +404,6 @@ export default function ChatUI({
         </div>
       </main>
 
-      {/* Quick Phrases */}
-      <div className="fixed bottom-16 left-0 right-0 z-20">
-        <div className="flex justify-center">
-          <button onClick={() => setIsOpen(o => !o)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-t-xl transition-all shadow-lg border-x border-t border-gray-700">
-            <span className="text-xs font-medium">Quick Phrases</span>
-            {isOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </button>
-        </div>
-        <div className={`bg-gray-800 border-x border-b border-gray-700 transition-all duration-300 overflow-hidden ${isOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"}`}>
-          <div className="p-3">
-            <LocalPhrases country={country} onInsert={(text) => handleSend(text, false)} language={language} />
-          </div>
-        </div>
-      </div>
 
       {/* Input Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-3 flex gap-2 items-center z-10">

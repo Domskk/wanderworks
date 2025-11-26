@@ -39,7 +39,7 @@ export default function LoginPage() {
     const role = (userData as { role: string } | null)?.role || 'user';
 
     // Redirect based on role
-    router.push(role === 'admin' ? '/dashboard/admin' : '/dashboard/user');
+    router.push(role)
     router.refresh(); // Important: refresh to get server session
   };
 

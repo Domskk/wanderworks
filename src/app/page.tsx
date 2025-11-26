@@ -37,7 +37,7 @@ export default function HomePage() {
           .single();
 
         const role = (profile as { role: string } | null)?.role || 'user';
-        router.push(role === 'admin' ? '/dashboard/admin' : '/dashboard/user');
+        router.push(role);
         router.refresh();
       }
 

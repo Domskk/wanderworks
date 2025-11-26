@@ -1,4 +1,3 @@
-// src/app/api/chat/route.ts
 import { NextResponse } from "next/server";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -33,7 +32,7 @@ export async function POST(req: Request) {
     let isTranslation = false;
     let localSpeak = "";
     let localLang = "";
-    let targetCountry = ""; // ← will be used in response
+    let targetCountry = ""; 
 
     // 1. Detect translation intent
     const translationPatterns = [
@@ -54,7 +53,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Follow-up translation
+    // Follow-up translation
     if (!isTranslation && /^(and|what about|how about|also|or|another one|what'?s)/i.test(lower)) {
       const memory = userMemory.get(userId);
       if (memory?.lastTopic === "translation") {
@@ -68,7 +67,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Handle translation request
+    // Handle translation request
     if (isTranslation && phrase && langInput && OPENROUTER_API_KEY) {
       const langKey = langInput.toLowerCase().replace(/[^a-z]/g, "");
       const targetLang = LANG_MAP[langKey] ?? { code: "en", name: "English" };
@@ -123,11 +122,11 @@ To: ${targetLang.name} (${targetCountry})`,
         isTranslation: true,
         localSpeak,
         localLang,
-        targetCountry, // ← now used!
+        targetCountry, 
       });
     }
 
-    // 4. Full conversational mode (non-translation)
+    // Full conversational mode (non-translation)
     if (OPENROUTER_API_KEY) {
       const response = await fetch(OPENROUTER_URL, {
         method: "POST",
